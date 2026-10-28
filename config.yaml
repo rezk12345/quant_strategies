@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------
+# Three ML / quant strategies — configuration
+# data.source: live  -> yfinance + Wikipedia + Ken French library
+#              synthetic -> generated data, runs fully offline
+# ---------------------------------------------------------------
+
+data:
+  source: live
+  cache_dir: data_cache
+
+# ---------------------------------------------------------------- 1
+unsupervised:
+  start: "2015-01-01"
+  end:   "2023-09-27"
+  universe_size: 150          # most liquid names (by rolling dollar volume) each month
+  liquidity_window_months: 60 # rolling average dollar volume window (months)
+  return_lags: [1, 2, 3, 6, 9, 12]   # monthly return features
+  outlier_clip: 0.005         # winsorise returns at 0.5% / 99.5%
+  factor_window: 24           # rolling months for Fama-French betas
+  n_clusters: 4
+  # seed centroids on RSI so cluster IDs mean the same thing every month
+  rsi_centroids: [30, 45, 55, 70]
+  target_cluster: 3           # cluster seeded at RSI 70 = strong momentum names
+  optimisation:
+    lookback_days: 365        # history used to estimate returns / covariance
+    min_weight_floor: half_equal   # each weight >= 0.5 / n_stocks
+    max_weight: 0.10
+  benchmark: SPY
+
+# ---------------------------------------------------------------- 2
+sentiment:
+  csv: data/sentiment_data.csv   # columns: date, symbol, twitterPosts, twitterComments, twitterLikes, twitterImpressions
+  start: "2021-01-01"
+  end:   "2023-03-01"
+  min_likes: 20               # ignore illiquid chatter
+  min_comments: 10
+  top_n: 5                    # hold the 5 highest engagement-ratio stocks each month
+  benchmark: QQQ
+
+# ---------------------------------------------------------------- 3
+intraday:
+  daily_csv: data/simulated_daily_data.csv      # columns: Date, Open, High, Low, Close, Adj Close, Volume
+  intraday_csv: data/simulated_5min_data.csv    # columns: datetime, open, high, low, close, volume
+  garch:
+    window_days: 180          # rolling fit window
+    p: 1
+    q: 3
+  signal_z_window: 180        # z-score window for (forecast vol - realised vol)
+  signal_z_threshold: 1.5     # |z| above this -> daily signal
+  rsi_period: 20
+  bb_period: 20
+  bb_std: 2.0
+  rsi_upper: 70
+  rsi_lower: 30
